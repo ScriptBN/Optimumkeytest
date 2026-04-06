@@ -107,7 +107,7 @@ SoundManager:Initialize()
 -- CORE UI CREATION & BLUR
 -- ==============================================================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "OptimumKeySystem_Enterprise"
+ScreenGui.Name = "Optimum KeySystem | By Fuddy"
 ScreenGui.Parent = GuiParent
 ScreenGui.ResetOnSpawn = false
 ScreenGui.IgnoreGuiInset = true
