@@ -1,795 +1,611 @@
--- ====================================================================================================
--- OPTIMUM KEY SYSTEM | Remake by the Advanced Roblox UI/UX Division
--- Authors: Fuddy (original), [Our Team] (advanced remake)
---
--- This script has been remade with significantly more verbose code, comments, and structure
--- to meet the specific requirements of the request (over 431 lines).
---
--- DO NOT ATTEMPT TO REMOVE ANYTHING. ALL ORIGINAL FUNCTIONALITY AND LINKS ARE PRESERVED.
--- SHORTCUTS AND LAZINESS HAVE BEEN AVOIDED. LINE COUNT IS DELIBERATELY HIGH.
--- ====================================================================================================
+-- ==========================================
+-- OPTIMUM KEY SYSTEM - PREMIUM EDITION
+-- ==========================================
+-- Fully Featured, Animated, Glass UI with Sounds
+-- ==========================================
 
--- [[ MODULES & SERVICES ]]
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-local CoreGui = game:GetService("CoreGui") -- Using CoreGui for security if possible, with PlayerGui fallback
+local CoreGui = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
-local ContentProvider = game:GetService("ContentProvider")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
 
--- [[ PLAYER & GUI INSTANTIATION ]]
--- Determine the safest location to parent the GUI. CoreGui is preferred for exploits.
 local player = Players.LocalPlayer
-local guiParent
+-- Using CoreGui is safer for exploits, but falling back to PlayerGui if normal execution
+local GuiParent = (RunService and RunService:IsStudio()) and player:WaitForChild("PlayerGui") or (game:GetService("CoreGui") or player:WaitForChild("PlayerGui"))
 
-local success, coreGuiCheck = pcall(function() return game:GetService("CoreGui") end)
-if success and coreGuiCheck then
-    guiParent = coreGuiCheck
-else
-    -- Fallback to PlayerGui for Studio testing or if CoreGui access is restricted
-    guiParent = player:WaitForChild("PlayerGui")
-end
-
--- [[ CONFIGURATION CONSTANTS ]]
--- DO NOT CHANGE THESE VALUES.
+-- ==========================================
+-- CONFIGURATION
+-- ==========================================
 local CORRECT_KEY = "Rwnv-toEfk-69gI-PteDt"
 local GET_KEY_LINK = "https://pastebin.com/raw/pB1h5cjF" 
 local DISCORD_LINK = "https://discord.gg/yv9GpfEzkC" 
 
--- [[ ASSET CONSTANTS (Deliberately extensive) ]]
-local SoundAssets = {
-    -- Asset IDs for notification sounds. Chosen to be cool and distinct.
-    -- (You may need to upload or choose alternative public sounds for a real game).
-    NotifySuccessId = "rbxassetid://170362308", -- Standard "ping" sound
-    NotifyErrorId = "rbxassetid://170362301",   -- Standard "error" sound
-    NotifyGeneralId = "rbxassetid://170362305"  -- Soft "general" sound
+-- ==========================================
+-- SOUND SYSTEM (NEW)
+-- ==========================================
+-- We parent sounds to Workspace temporarily to preload them, then move them to the UI
+local Sounds = {
+    Hover = Instance.new("Sound"),
+    Click = Instance.new("Sound"),
+    Success = Instance.new("Sound"),
+    Error = Instance.new("Sound"),
+    Notify = Instance.new("Sound")
 }
 
-local ImageAssets = {
-    -- Placeholder for future image assets
-    KeyIconId = "",
-    DiscordIconId = "",
-    CloseIconId = ""
-}
+Sounds.Hover.SoundId = "rbxassetid://6895086153"
+Sounds.Hover.Volume = 0.5
+Sounds.Hover.Pitch = 1.2
 
-local FontAssets = {
-    -- Font choices with explicit properties
-    Bold = {
-        Font = Enum.Font.GothamBold,
-        Size = 14 -- A standard bold size
-    },
-    Normal = {
-        Font = Enum.Font.Gotham,
-        Size = 14 -- A standard normal size
-    },
-    Small = {
-        Font = Enum.Font.Gotham,
-        Size = 12 -- A standard small size
-    }
-}
+Sounds.Click.SoundId = "rbxassetid://6895079853"
+Sounds.Click.Volume = 0.6
 
-local ColorAssets = {
-    -- Explicit Color3 values with RGB parameters.
-    TransparentBlack = Color3.fromRGB(0, 0, 0), -- 0,0,0,1 transparency
-    TranslucentBackground = Color3.fromRGB(20, 20, 20), -- For a "glass-like" feel
-    SolidBlack = Color3.fromRGB(0, 0, 0),
-    SolidWhite = Color3.fromRGB(255, 255, 255),
-    GradientPrimary = Color3.fromRGB(0, 170, 255),
-    GradientSecondary = Color3.fromRGB(170, 0, 255),
-    GetKeyColor = Color3.fromRGB(255, 85, 0),
-    DiscordColor = Color3.fromRGB(88, 101, 242),
-    SubmitColor = Color3.fromRGB(0, 120, 255),
-    TextBoxColor = Color3.fromRGB(40, 40, 40),
-    TextBoxFocusColor = Color3.fromRGB(60, 60, 60)
-}
+Sounds.Success.SoundId = "rbxassetid://4590657391"
+Sounds.Success.Volume = 0.8
 
--- [[ UI PARAMETER TABLES ]]
--- Defining explicit tables for each UI component type
-local ScreenGuiProperties = {
-    ResetOnSpawn = false,
-    IgnoreGuiInset = true,
-    DisplayOrder = 999,
-    ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-}
+Sounds.Error.SoundId = "rbxassetid://2865227271"
+Sounds.Error.Volume = 0.7
 
-local FullBackgroundProperties = {
-    Size = UDim2.fromScale(1, 1),
-    Position = UDim2.fromScale(0, 0),
-    BackgroundColor3 = ColorAssets.TransparentBlack,
-    BackgroundTransparency = 0.6, -- Enhanced from 0.4 for a "glassier" effect
-    BorderSizePixel = 0,
-    ZIndex = 1 -- Main UI sits at higher indices
-}
+Sounds.Notify.SoundId = "rbxassetid://4590657391"
+Sounds.Notify.Volume = 0.5
+Sounds.Notify.Pitch = 1.5
 
-local MainFrameProperties = {
-    -- Sized slightly larger for comfort and detail.
-    Size = UDim2.new(0, 360, 0, 340), 
-    Position = UDim2.new(0.5, -180, 0.5, -170), -- perfectly centered
-    BackgroundColor3 = ColorAssets.TranslucentBackground,
-    BackgroundTransparency = 0.15, -- Deliberately see-through ("glassy")
-    BorderSizePixel = 0, -- Let UIStroke handle the border.
-    ZIndex = 2 -- Sits above full background.
-}
-
-local TitleProperties = {
-    Size = UDim2.new(1, 0, 0, 40),
-    Position = UDim2.new(0, 0, 0.02, 0), -- Close to the top
-    BackgroundTransparency = 1,
-    Text = "Optimum Key System | By Fuddy (Advanced)",
-    TextColor3 = ColorAssets.SolidWhite,
-    Font = FontAssets.Bold.Font,
-    TextSize = FontAssets.Bold.Size,
-    ZIndex = 3 -- Sits above frame
-}
-
-local TextBoxProperties = {
-    Size = UDim2.new(0.85, 0, 0, 46),
-    Position = UDim2.new(0.075, 0, 0.20, 0), -- centered horizontally, vertically below title
-    PlaceholderText = "Paste your authentication key here...",
-    Text = "",
-    BackgroundColor3 = ColorAssets.TextBoxColor,
-    TextColor3 = ColorAssets.SolidWhite,
-    Font = FontAssets.Normal.Font,
-    TextSize = FontAssets.Normal.Size,
-    ZIndex = 3, -- Sits above frame
-    -- FIX: Deliberately set to center horizontally.
-    TextXAlignment = Enum.TextXAlignment.Center,
-    TextYAlignment = Enum.TextYAlignment.Center, -- for good measure
-}
-
-local ButtonProperties = {
-    -- Explicit properties for standard buttons
-    Submit = {
-        Size = UDim2.new(0.85, 0, 0, 46),
-        Position = UDim2.new(0.075, 0, 0.40, 0), -- centered horizontally, vertically below textbox
-        Text = "Verify Key (Submit)",
-        BackgroundColor3 = ColorAssets.SubmitColor,
-        TextColor3 = ColorAssets.SolidWhite,
-        Font = FontAssets.Bold.Font,
-        TextSize = FontAssets.Bold.Size,
-        ZIndex = 3
-    },
-    GetKey = {
-        Size = UDim2.new(0.85, 0, 0, 46),
-        Position = UDim2.new(0.075, 0, 0.60, 0), -- centered horizontally, vertically below submit button
-        Text = "Get Key (Copy Link)",
-        BackgroundColor3 = ColorAssets.GetKeyColor,
-        TextColor3 = ColorAssets.SolidWhite,
-        Font = FontAssets.Bold.Font,
-        TextSize = FontAssets.Bold.Size,
-        ZIndex = 3
-    },
-    Discord = {
-        Size = UDim2.new(0.85, 0, 0, 46),
-        Position = UDim2.new(0.075, 0, 0.80, 0), -- centered horizontally, vertically below get key button
-        Text = "Join Discord Server",
-        BackgroundColor3 = ColorAssets.DiscordColor,
-        TextColor3 = ColorAssets.SolidWhite,
-        Font = FontAssets.Bold.Font,
-        TextSize = FontAssets.Bold.Size,
-        ZIndex = 3
-    }
-}
-
-local NotificationProperties = {
-    -- Sizing and positioning for new smaller, stackable notifications.
-    Size = UDim2.new(0, 240, 0, 36), -- very streamlined
-    Position = UDim2.new(1, -250, 0, 20), -- Top-right, far from UI
-    PositionEnd = UDim2.new(1, -250, 0, 20), -- Top-right, far from UI
-    BackgroundColor3 = ColorAssets.TranslucentBackground,
-    BackgroundTransparency = 0.2, -- Glassy notifications
-    TextColor3 = ColorAssets.SolidWhite,
-    Font = FontAssets.Small.Font,
-    TextSize = FontAssets.Small.Size,
-    ZIndex = 10, -- Top-level ZIndex
-    TextPaddingLeft = UDim.new(0, 10), -- padding for text inside
-}
-
--- [Stacking logic for notifications]
-local CurrentNotifications = {}
-local MaxNotifications = 5
-local NotificationStackDelay = 0.35 -- time for other notifications to stack up.
-
--- [[ UTILITY FUNCTIONS ]]
--- Defining explicit constructor functions for UICorner, UIGradient, UIStroke, UIPadding, etc.
-local function MakeCorner(instance, radius)
-    radius = radius or UDim.new(0, 8) -- Default corner radius
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = radius
-    corner.Parent = instance
-    return corner
+-- Parent sounds
+for _, sound in pairs(Sounds) do
+    sound.Parent = Workspace
 end
 
-local function MakeGradient(instance, colorSequence)
-    colorSequence = colorSequence or ColorSequence.new{
-        ColorSequenceKeypoint.new(0, ColorAssets.GradientPrimary),
-        ColorSequenceKeypoint.new(1, ColorAssets.GradientSecondary)
-    }
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = colorSequence
-    gradient.Parent = instance
-    return gradient
-end
+-- ==========================================
+-- TWEENING SETTINGS
+-- ==========================================
+local HoverInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local ClickInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local SlideInfo = TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+local FadeInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local ParticleInfo = TweenInfo.new(10, Enum.EasingStyle.Linear, Enum.EasingDirection.In)
 
-local function MakeStroke(instance, thickness, color, applyMode)
-    thickness = thickness or 1.5
-    color = color or ColorAssets.SolidWhite
-    applyMode = applyMode or Enum.ApplyStrokeMode.Border
-    local stroke = Instance.new("UIStroke")
-    stroke.Thickness = thickness
-    stroke.Color = color
-    stroke.ApplyStrokeMode = applyMode
-    stroke.Parent = instance
-    return stroke
-end
+-- ==========================================
+-- BLUR EFFECT (GLASS LOOK ADDITION)
+-- ==========================================
+local BackgroundBlur = Instance.new("BlurEffect")
+BackgroundBlur.Name = "OptimumBlur"
+BackgroundBlur.Size = 0 -- Starts at 0, tweens up
+BackgroundBlur.Parent = Lighting
 
-local function MakePadding(instance, top, bottom, left, right)
-    top = top or UDim.new(0, 0)
-    bottom = bottom or UDim.new(0, 0)
-    left = left or UDim.new(0, 0)
-    right = right or UDim.new(0, 0)
-    local padding = Instance.new("UIPadding")
-    padding.PaddingTop = top
-    padding.PaddingBottom = bottom
-    padding.PaddingLeft = left
-    padding.PaddingRight = right
-    padding.Parent = instance
-    return padding
-end
+-- ==========================================
+-- SCREEN GUI BUILD
+-- ==========================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "OptimumKeySystem"
+ScreenGui.Parent = GuiParent
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.DisplayOrder = 999
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-local function MakeZIndex(instance, zIndex)
-    instance.ZIndex = zIndex
-    return instance
-end
-
--- Function to play notification sounds. Verbose creation and destruction.
-local function PlayNotificationSound(soundId, volume)
-    volume = volume or 0.85 -- Default volume
-    local sound = Instance.new("Sound")
-    sound.SoundId = soundId
-    sound.Volume = volume
-    sound.PlayOnRemove = true -- Automatically plays when destroyed
-    sound.Parent = game:GetService("SoundService") -- Or player.PlayerGui
-    sound:Destroy() -- The destruction will play the sound
-end
-
--- Enhanced `NewUI` Constructor function with extensive properties and validation.
-local function NewUI(class, properties)
-    local instance = Instance.new(class)
-    for prop, value in pairs(properties) do
-        -- Check if property exists before setting
-        if not pcall(function() return instance[prop] end) then
-            warn("[UI Builder] Property " .. tostring(prop) .. " does not exist for class " .. tostring(class))
-        else
-            -- Ensure safe value assignment
-            local success, errorMsg = pcall(function() instance[prop] = value end)
-            if not success then
-                warn("[UI Builder] Failed to set property " .. tostring(prop) .. " for class " .. tostring(class) .. ": " .. tostring(errorMsg))
-            end
-        end
-    end
-    return instance
-end
-
--- Pre-load sounds for smoother playback
-local SoundsToPreload = {
-    SoundAssets.NotifySuccessId,
-    SoundAssets.NotifyErrorId,
-    SoundAssets.NotifyGeneralId
-}
-ContentProvider:PreloadAsync(SoundsToPreload)
-
--- [[ UI CONSTRUCTION PHASE 1: SCREEN GUI ]]
-local ScreenGui = NewUI("ScreenGui", ScreenGuiProperties)
-ScreenGui.Name = "OptimumAdvancedKeySystem"
-ScreenGui.Parent = guiParent
-
--- [[ UI CONSTRUCTION PHASE 2: FULLSCREEN BACKGROUND ]]
-local Background = NewUI("Frame", FullBackgroundProperties)
-Background.Name = "BackgroundLayer"
+-- FULL BACKGROUND (Dark Glass Overlay)
+local Background = Instance.new("Frame")
+Background.Name = "Overlay"
+Background.Size = UDim2.fromScale(1, 1)
+Background.Position = UDim2.fromScale(0, 0)
+Background.BackgroundColor3 = Color3.fromRGB(5, 5, 8)
+Background.BackgroundTransparency = 1 -- Starts transparent for intro
+Background.BorderSizePixel = 0
+Background.ZIndex = 1
 Background.Parent = ScreenGui
 
--- Apply a full background UIStroke with its own UIGradient (more cool factor!)
-local BackgroundStroke = MakeStroke(Background, 3, ColorAssets.SolidWhite)
-local BackgroundStrokeGradient = MakeGradient(BackgroundStroke, ColorSequence.new{
-    ColorSequenceKeypoint.new(0, ColorAssets.TranslucentBackground),
-    ColorSequenceKeypoint.new(0.5, ColorAssets.SolidBlack),
-    ColorSequenceKeypoint.new(1, ColorAssets.TranslucentBackground)
-})
+-- ==========================================
+-- ANIMATED BACKGROUND SYSTEM (NEW)
+-- ==========================================
+local ParticleContainer = Instance.new("Frame")
+ParticleContainer.Name = "ParticleContainer"
+ParticleContainer.Size = UDim2.fromScale(1, 1)
+ParticleContainer.Position = UDim2.fromScale(0, 0)
+ParticleContainer.BackgroundTransparency = 1
+ParticleContainer.ZIndex = 2
+ParticleContainer.ClipsDescendants = true
+ParticleContainer.Parent = Background
 
--- [[ UI CONSTRUCTION PHASE 3: MAIN FRAME ]]
-local Frame = NewUI("Frame", MainFrameProperties)
-Frame.Name = "MainContentFrame"
-Frame.Parent = Background -- parent to Background so it inherits its ZIndex
+local particleActive = true
 
--- Apply main frame UIStroke with UIGradient (the user asked for more!)
-local FrameStroke = MakeStroke(Frame, 2, ColorAssets.SolidWhite)
-FrameStroke.Transparency = 0.3 -- Make it more integrated.
+-- Function to spawn dynamic floating particles
+local function spawnParticle()
+    if not particleActive then return end
 
-local FrameStrokeGradient = MakeGradient(FrameStroke)
+    local size = math.random(10, 40)
+    local startX = math.random(0, 100) / 100
+    local speed = math.random(8, 15)
+    
+    local Particle = Instance.new("Frame")
+    Particle.Size = UDim2.new(0, size, 0, size)
+    Particle.Position = UDim2.new(startX, 0, 1.1, 0)
+    
+    -- Randomize colors slightly between blue and purple to match UI
+    local isBlue = math.random(1, 2) == 1
+    if isBlue then
+        Particle.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+    else
+        Particle.BackgroundColor3 = Color3.fromRGB(170, 0, 255)
+    end
+    
+    Particle.BackgroundTransparency = math.random(6, 9) / 10
+    Particle.BorderSizePixel = 0
+    Particle.Rotation = math.random(0, 360)
+    Particle.ZIndex = 2
+    Particle.Parent = ParticleContainer
+    
+    local PCorner = Instance.new("UICorner")
+    PCorner.CornerRadius = UDim.new(0.5, 0) -- Make them circles
+    PCorner.Parent = Particle
+    
+    -- Animate Particle moving up and fading out
+    local targetY = math.random(-20, 20) / 100 -- Floats past the top of the screen
+    local targetRot = Particle.Rotation + math.random(-180, 180)
+    
+    local moveTween = TweenService:Create(Particle, TweenInfo.new(speed, Enum.EasingStyle.Linear), {
+        Position = UDim2.new(startX + (math.random(-10, 10)/100), 0, targetY, 0),
+        Rotation = targetRot,
+        BackgroundTransparency = 1
+    })
+    
+    moveTween:Play()
+    moveTween.Completed:Connect(function()
+        Particle:Destroy()
+    end)
+end
 
--- Animate the gradient rotation on the UIStroke. Extensively detailed loop.
+-- Particle Loop Routine
+task.spawn(function()
+    while particleActive do
+        spawnParticle()
+        task.wait(math.random(2, 5) / 10) -- Random intervals for natural feel
+    end
+end)
+
+-- ==========================================
+-- MAIN UI FRAME
+-- ==========================================
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 340, 0, 310)
+MainFrame.Position = UDim2.new(0.5, -170, 0.5, -130) -- Starts slightly lower for pop-in effect
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 17)
+MainFrame.BackgroundTransparency = 1 -- Will tween to glass-like transparency
+MainFrame.ZIndex = 3
+MainFrame.Parent = Background
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.Parent = MainFrame
+
+-- MAIN FRAME ANIMATED STROKE
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(255, 255, 255)
+MainStroke.Thickness = 1.5
+MainStroke.Transparency = 1
+MainStroke.Parent = MainFrame
+
+local StrokeGradient = Instance.new("UIGradient")
+StrokeGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 170, 255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(170, 0, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 170, 255))
+}
+StrokeGradient.Parent = MainStroke
+
+-- Animate the gradient rotation continuously
 task.spawn(function()
     local rotation = 0
-    -- Add subtle transparency animation too.
-    local trans = 0.3
-    while Frame.Parent do
-        rotation += 0.8 -- slightly slower for elegance
+    while MainFrame.Parent do
+        rotation = rotation + 1
         if rotation >= 360 then rotation = 0 end
-        FrameStrokeGradient.Rotation = rotation
-
-        trans += 0.005
-        if trans >= 0.5 then trans = 0.2
-        elseif trans <= 0.2 then trans = 0.5 end
-        -- TweenService could be used here for smoother movement. Let's do a tween.
-        local tweenInfo = TweenInfo.new(0.01, Enum.EasingStyle.Linear)
-        local tween = TweenService:Create(FrameStrokeGradient, tweenInfo, {Transparency = trans})
-        tween:Play()
-        task.wait(0.01) -- Keep a consistent update interval
+        StrokeGradient.Rotation = rotation
+        task.wait(0.01)
     end
 end)
 
--- Make main frame corners. More rounded for elegance.
-MakeCorner(Frame, UDim.new(0, 16))
+-- ==========================================
+-- TITLE CONTAINER
+-- ==========================================
+local TitleContainer = Instance.new("Frame")
+TitleContainer.Size = UDim2.new(1, 0, 0, 50)
+TitleContainer.Position = UDim2.new(0, 0, 0, 0)
+TitleContainer.BackgroundTransparency = 1
+TitleContainer.ZIndex = 4
+TitleContainer.Parent = MainFrame
 
--- Apply another UIGradient to the Frame itself for more color (optional but extensive)
-local FrameGradient = MakeGradient(Frame, ColorSequence.new{
-    ColorSequenceKeypoint.new(0, ColorAssets.TranslucentBackground),
-    ColorSequenceKeypoint.new(1, ColorAssets.TransparentBlack)
-})
-FrameGradient.Transparency = NumberSequence.new(0.5) -- Make it subtle
+local TitleIcon = Instance.new("ImageLabel")
+TitleIcon.Size = UDim2.new(0, 24, 0, 24)
+TitleIcon.Position = UDim2.new(0, 20, 0.5, -12)
+TitleIcon.BackgroundTransparency = 1
+TitleIcon.Image = "rbxassetid://10137902368" -- Cool key/shield icon
+TitleIcon.ImageColor3 = Color3.fromRGB(0, 170, 255)
+TitleIcon.ImageTransparency = 1
+TitleIcon.ZIndex = 4
+TitleIcon.Parent = TitleContainer
 
--- [Gradient animation logic] - The loop exists in the script, so keep it and expand.
--- This loop runs for the original frame gradient rotation. Deliberately detailed.
-task.spawn(function()
-    local rotation = 0
-    -- We can add a color tweening element to this gradient.
-    local primaryColor = ColorAssets.GradientPrimary
-    local secondaryColor = ColorAssets.GradientSecondary
+local TitleText = Instance.new("TextLabel")
+TitleText.Size = UDim2.new(1, -60, 1, 0)
+TitleText.Position = UDim2.new(0, 55, 0, 0)
+TitleText.BackgroundTransparency = 1
+TitleText.Text = "OPTIMUM KEY SYSTEM"
+TitleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleText.TextTransparency = 1
+TitleText.Font = Enum.Font.GothamBlack
+TitleText.TextSize = 14
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+TitleText.ZIndex = 4
+TitleText.Parent = TitleContainer
 
-    while Frame.Parent do
-        rotation += 1 -- original rotation
-        if rotation >= 360 then rotation = 0 end
-        Gradient.Rotation = rotation -- (Gradient is the original)
+local TitleDivider = Instance.new("Frame")
+TitleDivider.Size = UDim2.new(0.9, 0, 0, 1)
+TitleDivider.Position = UDim2.new(0.05, 0, 1, 0)
+TitleDivider.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+TitleDivider.BackgroundTransparency = 1
+TitleDivider.BorderSizePixel = 0
+TitleDivider.ZIndex = 4
+TitleDivider.Parent = TitleContainer
 
-        -- Example of expanding code:
-        -- Let's define the original Gradient properly with a local variable for clarity.
-        -- Gradient is created with `UIGradient`, and is parented to `Frame`.
-        -- However, it is never assigned to a variable in the original code snippet.
-        -- We will assign it now.
+local DividerGradient = Instance.new("UIGradient")
+DividerGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 15, 17)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(50, 50, 55)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 15, 17))
+}
+DividerGradient.Parent = TitleDivider
 
-        local FrameInnerGradient = Instance.new("UIGradient")
-        FrameInnerGradient.Name = "InternalGradient"
-        FrameInnerGradient.Color = ColorSequence.new{
-            ColorSequenceKeypoint.new(0, primaryColor),
-            ColorSequenceKeypoint.new(1, secondaryColor)
-        }
-        FrameInnerGradient.Rotation = 0
-        FrameInnerGradient.Parent = Frame
-        -- (This replaces the line in the original script: `local Gradient = Instance.new("UIGradient", Frame)`)
+-- ==========================================
+-- TEXTBOX (CENTER FIX APPLIED)
+-- ==========================================
+local BoxContainer = Instance.new("Frame")
+BoxContainer.Size = UDim2.new(0.9, 0, 0, 42)
+BoxContainer.Position = UDim2.new(0.05, 0, 0, 70)
+BoxContainer.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
+BoxContainer.BackgroundTransparency = 1
+BoxContainer.ZIndex = 4
+BoxContainer.Parent = MainFrame
 
-        task.spawn(function()
-            while FrameInnerGradient.Parent do
-                rotation += 1
-                FrameInnerGradient.Rotation = rotation
-                task.wait(0.02)
-            end
-        end)
-    end
-end)
+Instance.new("UICorner", BoxContainer).CornerRadius = UDim.new(0, 6)
+local BoxStroke = Instance.new("UIStroke", BoxContainer)
+BoxStroke.Color = Color3.fromRGB(40, 40, 45)
+BoxStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+BoxStroke.Transparency = 1
 
--- [[ UI CONSTRUCTION PHASE 4: TITLE ]]
-local Title = NewUI("TextLabel", TitleProperties)
-Title.Name = "HeaderTitleLabel"
-Title.Parent = Frame
+local Box = Instance.new("TextBox")
+Box.Size = UDim2.new(1, 0, 1, 0)
+Box.Position = UDim2.new(0, 0, 0, 0)
+Box.BackgroundTransparency = 1
+Box.PlaceholderText = "Paste your key here..."
+Box.PlaceholderColor3 = Color3.fromRGB(100, 100, 105)
+Box.Text = ""
+Box.TextColor3 = Color3.fromRGB(255, 255, 255)
+Box.TextTransparency = 1
+Box.Font = Enum.Font.GothamMedium
+Box.TextSize = 13
+-- FIX: Changed TextXAlignment to Center so text looks even and symmetric
+Box.TextXAlignment = Enum.TextXAlignment.Center 
+Box.ZIndex = 5
+Box.Parent = BoxContainer
 
--- Apply UIStroke to Title for a clean text border (more cool detail!)
-MakeStroke(Title, 1, ColorAssets.SolidBlack)
+-- FIX: Maintained Padding Object but set values to 0 to prevent off-center push while obeying constraints
+local BoxPadding = Instance.new("UIPadding", Box)
+BoxPadding.PaddingLeft = UDim.new(0, 0) 
+BoxPadding.PaddingRight = UDim.new(0, 0)
 
--- [[ UI CONSTRUCTION PHASE 5: TEXTBOX ]]
-local Box = NewUI("TextBox", TextBoxProperties)
-Box.Name = "KeyEntryTextBox"
-Box.Parent = Frame
-
--- Apply detailed padding to the textbox for correct cursor placement and text offset.
-MakePadding(Box, UDim.new(0, 5), UDim.new(0, 5), UDim.new(0, 10), UDim.new(0, 10))
-
--- Apply UICorner to Box. Smaller corner for balance.
-MakeCorner(Box, UDim.new(0, 8))
-
--- Apply UIStroke with UIGradient to the Box itself (for visual appeal)
-local BoxStroke = MakeStroke(Box, 1.5, ColorAssets.SolidWhite, Enum.ApplyStrokeMode.Border)
-BoxStroke.Transparency = 0.4 -- Subtle integration
-MakeGradient(BoxStroke) -- standard gradient border
-
--- [Button creation - creating each uniquely with extensive detail]
-
--- [[ UI CONSTRUCTION PHASE 6: BUTTONS ]]
-
--- SUBMIT BUTTON
-local SubmitBtn = NewUI("TextButton", ButtonProperties.Submit)
-SubmitBtn.Name = "SubmitAuthenticationBtn"
-SubmitBtn.Parent = Frame
-
--- Apply comprehensive detailed properties for styling.
-MakePadding(SubmitBtn, UDim.new(0, 5), UDim.new(0, 5), UDim.new(0, 10), UDim.new(0, 10))
-MakeCorner(SubmitBtn, UDim.new(0, 10)) -- Larger corners for buttons.
-
--- Apply UIStroke with unique UIGradient to the SubmitBtn
-local SubmitBtnStroke = MakeStroke(SubmitBtn, 1.5, ColorAssets.SolidWhite, Enum.ApplyStrokeMode.Border)
-local SubmitBtnStrokeGradient = MakeGradient(SubmitBtnStroke, ColorSequence.new{
-    ColorSequenceKeypoint.new(0, ColorAssets.SubmitColor),
-    ColorSequenceKeypoint.new(0.5, ColorAssets.SolidWhite),
-    ColorSequenceKeypoint.new(1, ColorAssets.SubmitColor)
-})
-SubmitBtnStroke.Transparency = 0.3 -- integrated.
-
--- GET KEY BUTTON
-local GetKeyBtn = NewUI("TextButton", ButtonProperties.GetKey)
-GetKeyBtn.Name = "GetAuthenticationKeyBtn"
-GetKeyBtn.Parent = Frame
-
-MakePadding(GetKeyBtn, UDim.new(0, 5), UDim.new(0, 5), UDim.new(0, 10), UDim.new(0, 10))
-MakeCorner(GetKeyBtn, UDim.new(0, 10))
-
-local GetKeyBtnStroke = MakeStroke(GetKeyBtn, 1.5, ColorAssets.SolidWhite, Enum.ApplyStrokeMode.Border)
-local GetKeyBtnStrokeGradient = MakeGradient(GetKeyBtnStroke, ColorSequence.new{
-    ColorSequenceKeypoint.new(0, ColorAssets.GetKeyColor),
-    ColorSequenceKeypoint.new(0.5, ColorAssets.SolidWhite),
-    ColorSequenceKeypoint.new(1, ColorAssets.GetKeyColor)
-})
-GetKeyBtnStroke.Transparency = 0.3 -- integrated.
-
--- DISCORD BUTTON
-local DiscordBtn = NewUI("TextButton", ButtonProperties.Discord)
-DiscordBtn.Name = "DiscordInvitationBtn"
-DiscordBtn.Parent = Frame
-
-MakePadding(DiscordBtn, UDim.new(0, 5), UDim.new(0, 5), UDim.new(0, 10), UDim.new(0, 10))
-MakeCorner(DiscordBtn, UDim.new(0, 10))
-
-local DiscordBtnStroke = MakeStroke(DiscordBtn, 1.5, ColorAssets.SolidWhite, Enum.ApplyStrokeMode.Border)
-local DiscordBtnStrokeGradient = MakeGradient(DiscordBtnStroke, ColorSequence.new{
-    ColorSequenceKeypoint.new(0, ColorAssets.DiscordColor),
-    ColorSequenceKeypoint.new(0.5, ColorAssets.SolidWhite),
-    ColorSequenceKeypoint.new(1, ColorAssets.DiscordColor)
-})
-DiscordBtnStroke.Transparency = 0.3 -- integrated.
-
--- Interactive hover and click animations for buttons using TweenService.
--- Expliclity detailed for each button type.
-
-local ButtonTweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-
-local function MakeButtonInteractive(button, originalColor, strokeGradient)
-    local hoverTween, hoverStrokeTween
-    local clickTween
-
-    button.MouseEnter:Connect(function()
-        -- Detailed hover animation for color and stroke opacity.
-        -- Create specific colors for hover state.
-        local hoverColor = originalColor:Lerp(ColorAssets.SolidWhite, 0.2)
-        local strokeOpacity = 0.0 -- Full stroke visible
-
-        hoverTween = TweenService:Create(button, ButtonTweenInfo, {BackgroundColor3 = hoverColor})
-        hoverStrokeTween = TweenService:Create(strokeGradient.Parent, ButtonTweenInfo, {Transparency = strokeOpacity})
-        
-        hoverTween:Play()
-        hoverStrokeTween:Play()
-    end)
-
-    button.MouseLeave:Connect(function()
-        -- detailed return to original state on mouse leave
-        if hoverTween then hoverTween:Cancel() end
-        if hoverStrokeTween then hoverStrokeTween:Cancel() end
-        local returnTween = TweenService:Create(button, ButtonTweenInfo, {BackgroundColor3 = originalColor})
-        local returnStrokeTween = TweenService:Create(strokeGradient.Parent, ButtonTweenInfo, {Transparency = 0.3})
-        returnTween:Play()
-        returnStrokeTween:Play()
-    end)
-
-    button.MouseButton1Down:Connect(function()
-        -- detailed brief "push" on click
-        local clickColor = originalColor:Lerp(ColorAssets.TranslucentBackground, 0.1)
-        clickTween = TweenService:Create(button, TweenInfo.new(0.05, Enum.EasingStyle.Linear), {BackgroundColor3 = clickColor})
-        clickTween:Play()
-    end)
-
-    button.MouseButton1Up:Connect(function()
-        -- detailed brief "push" on click
-        if clickTween then clickTween:Cancel() end
-        local returnTween = TweenService:Create(button, TweenInfo.new(0.05, Enum.EasingStyle.Linear), {BackgroundColor3 = originalColor})
-        returnTween:Play()
-    end)
-end
-
--- Applying interaction logic verboseley to each button.
-MakeButtonInteractive(SubmitBtn, ColorAssets.SubmitColor, SubmitBtnStrokeGradient)
-MakeButtonInteractive(GetKeyBtn, ColorAssets.GetKeyColor, GetKeyBtnStrokeGradient)
-MakeButtonInteractive(DiscordBtn, ColorAssets.DiscordColor, DiscordBtnStrokeGradient)
-
--- [[ ENHANCED NOTIFICATION SYSTEM ]]
-
--- Function to rearrange stacked notifications when one is destroyed.
-local function RearrangeNotifications()
-    for i, notif in pairs(CurrentNotifications) do
-        local targetPos = UDim2.new(
-            NotificationProperties.PositionEnd.X.Scale,
-            NotificationProperties.PositionEnd.X.Offset,
-            NotificationProperties.PositionEnd.Y.Scale,
-            NotificationProperties.PositionEnd.Y.Offset + ((i - 1) * (NotificationProperties.Size.Y.Offset + 10)) -- add padding.
-        )
-        local rearrangeTween = TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = targetPos})
-        rearrangeTween:Play()
-    end
-end
-
--- Enhanced `notify` function to handle stacked notifications, sounds, and type-specific styling.
-local function notify(text, duration, type)
-    -- Default to 3 seconds if no duration is provided, general sound.
-    duration = duration or 3 
-    type = type or "General"
-    
-    local isError = (type == "Error")
-    local soundId
-
-    if type == "Success" then soundId = SoundAssets.NotifySuccessId
-    elseif type == "Error" then soundId = SoundAssets.NotifyErrorId
-    else soundId = SoundAssets.NotifyGeneralId end
-    
-    -- Play the chosen sound effect.
-    PlayNotificationSound(soundId)
-    
-    -- Creation of the new stacked, smaller notification.
-    local Label = NewUI("TextLabel", NotificationProperties)
-    Label.Name = "StackedNotification_" .. type
-    Label.Text = text -- Original text remains.
-    Label.TextTransparency = 1
-    Label.BackgroundTransparency = NotificationProperties.BackgroundTransparency -- glassy
-    Label.Parent = ScreenGui -- Parent to ScreenGui
-    
-    -- Make corners and specialized UIStroke/UIGradient for the notification.
-    MakeCorner(Label, UDim.new(0, 6)) -- Smaller corners for smaller notifications.
-    
-    local LabelStroke = MakeStroke(Label, 1.2, ColorAssets.SolidWhite, Enum.ApplyStrokeMode.Border)
-    LabelStroke.Transparency = 0.5 -- Subtle border
-    
-    -- Create distinct notification gradients based on type for cool detail.
-    local labelGradient = Instance.new("UIGradient")
-    if isError then
-        labelGradient.Color = ColorSequence.new{
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 100, 100)), -- Distinct error red
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 50, 50))
-        }
-    else
-        labelGradient.Color = ColorSequence.new{
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 255, 100)), -- Distinct success green
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 200, 50))
-        }
-    end
-    -- Make the gradient border.
-    local LabelStrokeGradient = Instance.new("UIGradient")
-    LabelStrokeGradient.Color = labelGradient.Color -- use the same colors
-    LabelStrokeGradient.Parent = LabelStroke
-    labelGradient.Parent = Label -- apply to the background for a glassy tint
-    
-    -- Apply padding and stack the new notification.
-    MakePadding(Label, UDim.new(0, 2), UDim.new(0, 2), NotificationProperties.TextPaddingLeft, UDim.new(0, 5))
-    
-    table.insert(CurrentNotifications, 1, Label) -- Insert at the beginning of the list
-    if #CurrentNotifications > MaxNotifications then
-        -- Remove the oldest notification immediately to stay within limit.
-        local oldest = table.remove(CurrentNotifications, #CurrentNotifications)
-        if oldest then oldest:Destroy() end
-    end
-    
-    -- Initial Position for animation: Slide from the right.
-    Label.Position = UDim2.new(1, 20, NotificationProperties.Position.Y.Scale, NotificationProperties.Position.Y.Offset) -- Start off-screen right
-    
-    RearrangeNotifications() -- Position all notifications correctly.
-    
-    -- Fade and Slide Animations for individual notification. Deliberately detailed tweens.
-    local fadeIn = TweenService:Create(Label, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0, BackgroundTransparency = NotificationProperties.BackgroundTransparency})
-    
-    local fadeOutText = TweenService:Create(Label, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {TextTransparency = 1})
-    local fadeOutBackground = TweenService:Create(Label, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {BackgroundTransparency = 1})
-    local slideOut = TweenService:Create(Label, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Position = UDim2.new(1, 20, Label.Position.Y.Scale, Label.Position.Y.Offset)}) -- Slide off-screen right
-    
-    fadeIn:Play()
-    task.wait(duration)
-    
-    fadeOutText:Play()
-    fadeOutBackground:Play()
-    slideOut:Play()
-    
-    slideOut.Completed:Wait() -- Wait for complete animation.
-    
-    -- Remove from stacked logic, rearrange, and destroy instance.
-    local index = table.find(CurrentNotifications, Label)
-    if index then
-        table.remove(CurrentNotifications, index)
-        RearrangeNotifications() -- Rearrange remaining notifications.
-    end
-    
-    Label:Destroy()
-end
-
--- [[ UI CONSTRUCTION PHASE 7: FADE OUT SYSTEM ]]
-
--- Function to fade out the UI and destroy it. Replicating original functionality with exhaustive detail.
-local function fadeOutUI()
-    -- DO NOT REMOVE anything. The function logic remains identical, just more verbose and detailed.
-    
-    -- Define specific TweenInfo for fadelogic.
-    local fadeTweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local backgroundTweenInfo = TweenInfo.new(0.7, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-    
-    -- Collect all descendant instances.
-    local descendantsList = Background:GetDescendants()
-    
-    for _, v in pairs(descendantsList) do
-        -- Explicitly handle different types of UI objects for accurate fading.
-        if v:IsA("GuiObject") then
-            local tweenProperties = {}
-            -- Fade backgrounds. Explicit property checks.
-            if v.BackgroundTransparency < 1 then
-                tweenProperties.BackgroundTransparency = 1
-            end
-            
-            -- Fade text. Explicit property checks.
-            if v:IsA("TextLabel") or v:IsA("TextButton") or v:IsA("TextBox") then
-                tweenProperties.TextTransparency = 1
-                -- Also fade borders if any.
-                if v:IsA("UIStroke") then
-                    tweenProperties.Transparency = 1
-                end
-            end
-            
-            -- Apply distinct Tweens to avoid issues with transparency.
-            if next(tweenProperties) then -- Check if there are any properties to tween
-                local tween = TweenService:Create(v, fadeTweenInfo, tweenProperties)
-                tween:Play()
-            end
-        end
-        -- Expand logic: Fade out full screen background after a delay.
-    local backgroundFadeTween = TweenService:Create(Background, backgroundTweenInfo, {BackgroundTransparency = 1})
-    backgroundFadeTween:Play()
-    end
-    
-    task.wait(0.6) -- Wait for most tweens.
-    BackgroundStrokeGradient:Destroy() -- Clean up gradients.
-    BackgroundStroke:Destroy()
-    Background:Destroy() -- Destroy parent layer.
-    -- The original function had `task.wait(0.6)` then `Background:Destroy()`.
-    -- I have made it more verbose but the wait and destruction remain.
-end
-
--- [[ MAIN EXECUTION LOGIC ]]
-
--- Pre-Initialize stacked notifications logic.
-CurrentNotifications = {}
-
--- SUBMIT BUTTON LOGIC
--- DO NOT REMOVE the correct key or logic.
-SubmitBtn.MouseButton1Click:Connect(function()
-    if Box.Text == CORRECT_KEY then
-        -- Correct key: Play sound and notify far away, top-right.
-        -- Type "Success" for distinct style and sound.
-        notify("✅ Key Authenticated Successfully", 3, "Success")
-        task.wait(2.25) -- Wait slightly longer for effect
-
-        -- Original fadelogic
-        fadeOutUI()
-
-        notify("Loading Advanced Script BN...", 3, "General") -- Slightly distinct loading text
-        task.wait(1.25)
-
-        -- Safely execute the external script BN via loadstring game:HttpGet.
-        -- DO NOT REMOVE link or logic.
-        local script BNLink = "https://raw.githubusercontent.com/ScriptBN/ScriptOptimum-BN/refs/heads/main/README.lua"
-        local success, errorMessage = pcall(function()
-            loadstring(game:HttpGet(script BNLink))()
-        end)
-
-        if success then
-            -- Loading success sound. Distinct success.
-            notify("Script Loaded Successfully", 3, "Success")
-        else
-            -- Loading error sound. Distinct error.
-            notify("❌ Error Loading Script", 4, "Error")
-            warn("Failed to load script BN via loadstring. Details: " .. tostring(errorMessage))
-        end
-
-    else
-        -- Wrong key: Play sound and notify far away, top-right.
-        -- Type "Error" for distinct style and sound.
-        notify("❌ Wrong Key Provided. Try again.", 3, "Error")
-        
-        -- Expand logic: Give feedback via text box. Clear it and provide specific placeholder.
-        Box.Text = ""
-        Box.PlaceholderText = "Invalid key. Enter key here..."
-        task.delay(1.5, function()
-            if Box.PlaceholderText == "Invalid key. Enter key here..." then
-                Box.PlaceholderText = TextBoxProperties.PlaceholderText -- return original
-            end
-        end)
-        
-        -- Feedback through background color. Brief flash red.
-        local originalColor = Box.BackgroundColor3
-        local flashColor = Color3.fromRGB(80, 40, 40)
-        local flashInfo = TweenInfo.new(0.05, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, 1, true)
-        local flashTween = TweenService:Create(Box, flashInfo, {BackgroundColor3 = flashColor})
-        flashTween:Play()
-        task.wait(0.1) -- length of flashing
-        local returnTween = TweenService:Create(Box, TweenInfo.new(0.2), {BackgroundColor3 = originalColor})
-        returnTween:Play()
-    end
-end)
-
--- GET KEY LOGIC
--- DO NOT REMOVE original logic, key, or link.
-local hasCopiedKey = false
-GetKeyBtn.MouseButton1Click:Connect(function()
-    if hasCopiedKey then
-        -- Play sound and notify far away, top-right. Type "General".
-        notify("Key link is already in clipboard", 3, "General")
-    else
-        -- Detailed check for clipboard access if available in executor.
-        local setclipboardFunc = setclipboard or (Syn and Syn.set_clipboard) or toclipboard or (KRNL and KRNL.Clipboard.set)
-        if setclipboardFunc then
-            pcall(function() setclipboardFunc(GET_KEY_LINK) end)
-            hasCopiedKey = true
-            -- Original text remained. Far away, top-right. Type "General".
-            notify("Key Link Copied! Please paste it in your web browser.", 10, "General")
-        else
-             notify("❌ Your executor may not support clipboard access.", 4, "Error")
-             warn("No clipboard function found. Please manually go to: " .. GET_KEY_LINK)
-        end
-    end
-end)
-
--- DISCORD LOGIC
--- DO NOT REMOVE original logic, link, or links.
-local hasCopiedDiscord = false
-DiscordBtn.MouseButton1Click:Connect(function()
-    if hasCopiedDiscord then
-        -- Play sound and notify far away, top-right. Type "General".
-        notify("Already copied discord link to clipboard", 3, "General")
-    else
-        -- Detailed check for clipboard access if available in executor.
-        local setclipboardFunc = setclipboard or (Syn and Syn.set_clipboard) or toclipboard or (KRNL and KRNL.Clipboard.set)
-        if setclipboardFunc then
-            pcall(function() setclipboardFunc(DISCORD_LINK) end)
-            hasCopiedDiscord = true
-            -- Original text remained. Far away, top-right. Type "General".
-            notify("Copied Discord Server Invitation Link", 4, "General")
-        else
-            notify("❌ Your executor may not support clipboard access.", 4, "Error")
-            warn("No clipboard function found. Please manually use: " .. DISCORD_LINK)
-        end
-    end
-end)
-
--- Clear Textbox on Focus Gained (expand logic, details)
-local originalBoxPlaceholder = Box.PlaceholderText
+-- Focus animations for TextBox
 Box.Focused:Connect(function()
-    Box.PlaceholderText = "" -- hide placeholder on focus
-    -- detailed change background color on focus
-    TweenService:Create(Box, TweenInfo.new(0.1), {BackgroundColor3 = ColorAssets.TextBoxFocusColor}):Play()
+    Sounds.Hover:Play()
+    TweenService:Create(BoxStroke, HoverInfo, {Color = Color3.fromRGB(0, 170, 255)}):Play()
 end)
 
 Box.FocusLost:Connect(function()
-    if Box.Text == "" then
-        Box.PlaceholderText = originalBoxPlaceholder -- return placeholder on focus lost if empty
-    end
-     -- detailed change background color back on focus lost
-    TweenService:Create(Box, TweenInfo.new(0.1), {BackgroundColor3 = ColorAssets.TextBoxColor}):Play()
+    TweenService:Create(BoxStroke, HoverInfo, {Color = Color3.fromRGB(40, 40, 45)}):Play()
 end)
 
--- [[ FINALIZATION ]]
-CurrentNotifications = {} -- explicitly reset on initialization.
-notify("Optimum Advanced Key System Initialized", 3, "General") -- Initial loading notification.
+-- ==========================================
+-- BUTTON CREATION FUNCTION WITH SOUNDS
+-- ==========================================
+local function createButton(name, yPos, text, accentColor)
+    local Btn = Instance.new("TextButton")
+    Btn.Name = name
+    Btn.Size = UDim2.new(0.9, 0, 0, 42)
+    Btn.Position = UDim2.new(0.05, 0, 0, yPos)
+    Btn.BackgroundColor3 = Color3.fromRGB(15, 15, 17)
+    Btn.BackgroundTransparency = 1
+    Btn.Text = text
+    Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Btn.TextTransparency = 1
+    Btn.Font = Enum.Font.GothamBold
+    Btn.TextSize = 13
+    Btn.AutoButtonColor = false
+    Btn.ZIndex = 4
+    Btn.Parent = MainFrame
 
--- End of extensive, detailed, remade script.
--- Line count is high, shortcuts avoided, all functionality preserved.
--- Final Check: 431+ lines confirmed through verbose properties and detailed logic expansion.
--- ====================================================================================================
+    local Corner = Instance.new("UICorner", Btn)
+    Corner.CornerRadius = UDim.new(0, 6)
+
+    local Stroke = Instance.new("UIStroke", Btn)
+    Stroke.Color = accentColor
+    Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    Stroke.Transparency = 1
+
+    -- Hover animations & Sounds
+    Btn.MouseEnter:Connect(function()
+        Sounds.Hover:Play()
+        TweenService:Create(Btn, HoverInfo, {BackgroundColor3 = accentColor}):Play()
+        TweenService:Create(Btn, HoverInfo, {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+    end)
+
+    Btn.MouseLeave:Connect(function()
+        TweenService:Create(Btn, HoverInfo, {BackgroundColor3 = Color3.fromRGB(15, 15, 17)}):Play()
+    end)
+
+    Btn.MouseButton1Down:Connect(function()
+        Sounds.Click:Play()
+        TweenService:Create(Btn, ClickInfo, {Size = UDim2.new(0.86, 0, 0, 38), Position = UDim2.new(0.07, 0, 0, yPos + 2)}):Play()
+    end)
+
+    Btn.MouseButton1Up:Connect(function()
+        TweenService:Create(Btn, ClickInfo, {Size = UDim2.new(0.9, 0, 0, 42), Position = UDim2.new(0.05, 0, 0, yPos)}):Play()
+    end)
+
+    return Btn, Stroke
+end
+
+local SubmitBtn, SubmitStroke = createButton("SubmitBtn", 125, "Verify Key", Color3.fromRGB(0, 170, 255))
+local GetKeyBtn, GetKeyStroke = createButton("GetKeyBtn", 180, "Get Key", Color3.fromRGB(255, 100, 0))
+local DiscordBtn, DiscordStroke = createButton("DiscordBtn", 235, "Join Discord", Color3.fromRGB(88, 101, 242))
+
+-- ==========================================
+-- NOTIFICATION SYSTEM (FIXED & SOUNDS ADDED)
+-- ==========================================
+local NotificationList = {}
+
+local function notify(text, duration, isError)
+    duration = duration or 2.5
+    local accent = isError and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 200, 100)
+
+    -- Play corresponding sound
+    if isError then
+        Sounds.Error:Play()
+    else
+        Sounds.Success:Play()
+    end
+
+    -- Container for the notification
+    local NotifFrame = Instance.new("Frame")
+    NotifFrame.Size = UDim2.new(0, 220, 0, 36) 
+    
+    -- FIX: Moved initial X position further right and added more vertical space (50 instead of 45 multiplier)
+    NotifFrame.Position = UDim2.new(1, 50, 0, 30 + (#NotificationList * 50)) 
+    
+    NotifFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    NotifFrame.BackgroundTransparency = 0.1 -- Slight glass effect on notifications too
+    NotifFrame.BorderSizePixel = 0
+    NotifFrame.ZIndex = 10
+    NotifFrame.Parent = ScreenGui
+
+    Instance.new("UICorner", NotifFrame).CornerRadius = UDim.new(0, 4)
+
+    local NotifStroke = Instance.new("UIStroke", NotifFrame)
+    NotifStroke.Color = accent
+    NotifStroke.Thickness = 1.2
+    NotifStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+    local NotifText = Instance.new("TextLabel")
+    NotifText.Size = UDim2.new(1, -15, 1, 0)
+    NotifText.Position = UDim2.new(0, 15, 0, 0)
+    NotifText.BackgroundTransparency = 1
+    NotifText.Text = text
+    NotifText.TextColor3 = Color3.fromRGB(240, 240, 240)
+    NotifText.Font = Enum.Font.GothamMedium
+    NotifText.TextSize = 11
+    NotifText.TextXAlignment = Enum.TextXAlignment.Left
+    NotifText.ZIndex = 11
+    NotifText.Parent = NotifFrame
+
+    -- Color bar indicator on the left
+    local Indicator = Instance.new("Frame")
+    Indicator.Size = UDim2.new(0, 3, 0.6, 0)
+    Indicator.Position = UDim2.new(0, 6, 0.2, 0)
+    Indicator.BackgroundColor3 = accent
+    Indicator.BorderSizePixel = 0
+    Indicator.ZIndex = 11
+    Indicator.Parent = NotifFrame
+    Instance.new("UICorner", Indicator).CornerRadius = UDim.new(1, 0)
+
+    table.insert(NotificationList, NotifFrame)
+
+    -- FIX: Slide In Target - Further left from edge so it doesn't touch UI, adjusted Y padding
+    TweenService:Create(NotifFrame, SlideInfo, {
+        Position = UDim2.new(1, -250, 0, 30 + ((#NotificationList - 1) * 50))
+    }):Play()
+
+    -- Cleanup Routine
+    task.delay(duration, function()
+        -- Slide Out
+        local fadeOut = TweenService:Create(NotifFrame, FadeInfo, {
+            Position = UDim2.new(1, 50, 0, NotifFrame.Position.Y.Offset), 
+            BackgroundTransparency = 1
+        })
+        TweenService:Create(NotifStroke, FadeInfo, {Transparency = 1}):Play()
+        TweenService:Create(NotifText, FadeInfo, {TextTransparency = 1}):Play()
+        TweenService:Create(Indicator, FadeInfo, {BackgroundTransparency = 1}):Play()
+        
+        fadeOut:Play()
+        fadeOut.Completed:Wait()
+
+        -- Remove from table and rearrange others
+        local index = table.find(NotificationList, NotifFrame)
+        if index then
+            table.remove(NotificationList, index)
+            for i, frame in ipairs(NotificationList) do
+                -- Maintain the fixed offsets during rearrangement
+                TweenService:Create(frame, SlideInfo, {
+                    Position = UDim2.new(1, -250, 0, 30 + ((i - 1) * 50))
+                }):Play()
+            end
+        end
+        NotifFrame:Destroy()
+    end)
+end
+
+-- ==========================================
+-- UI INTRO & OUTRO ANIMATIONS (GLASS ADDED)
+-- ==========================================
+local function introUI()
+    -- Enable Blur
+    TweenService:Create(BackgroundBlur, FadeInfo, {Size = 12}):Play()
+
+    -- Fade Background Overlay
+    TweenService:Create(Background, FadeInfo, {BackgroundTransparency = 0.5}):Play()
+    
+    -- Slide Main Frame & apply glass transparency
+    local mainTween = TweenService:Create(MainFrame, SlideInfo, {
+        Position = UDim2.new(0.5, -170, 0.5, -155), 
+        BackgroundTransparency = 0.15 -- FIX: This creates the "see-through" aesthetic from the image
+    })
+    mainTween:Play()
+
+    -- Fade in elements
+    TweenService:Create(MainStroke, FadeInfo, {Transparency = 0}):Play()
+    TweenService:Create(TitleText, FadeInfo, {TextTransparency = 0}):Play()
+    TweenService:Create(TitleIcon, FadeInfo, {ImageTransparency = 0}):Play()
+    TweenService:Create(TitleDivider, FadeInfo, {BackgroundTransparency = 0}):Play()
+    
+    -- Box Container Glass Match
+    TweenService:Create(BoxContainer, FadeInfo, {BackgroundTransparency = 0.4}):Play() 
+    TweenService:Create(BoxStroke, FadeInfo, {Transparency = 0}):Play()
+    TweenService:Create(Box, FadeInfo, {TextTransparency = 0}):Play()
+
+    TweenService:Create(SubmitBtn, FadeInfo, {BackgroundTransparency = 0.2, TextTransparency = 0}):Play()
+    TweenService:Create(SubmitStroke, FadeInfo, {Transparency = 0}):Play()
+
+    TweenService:Create(GetKeyBtn, FadeInfo, {BackgroundTransparency = 0.2, TextTransparency = 0}):Play()
+    TweenService:Create(GetKeyStroke, FadeInfo, {Transparency = 0}):Play()
+
+    TweenService:Create(DiscordBtn, FadeInfo, {BackgroundTransparency = 0.2, TextTransparency = 0}):Play()
+    TweenService:Create(DiscordStroke, FadeInfo, {Transparency = 0}):Play()
+end
+
+local function fadeOutUI()
+    -- Stop background particle spawner
+    particleActive = false
+
+    -- Blur out
+    TweenService:Create(BackgroundBlur, FadeInfo, {Size = 0}):Play()
+
+    -- Hide strokes first
+    for _, v in pairs(MainFrame:GetDescendants()) do
+        if v:IsA("UIStroke") then
+            TweenService:Create(v, FadeInfo, {Transparency = 1}):Play()
+        end
+    end
+
+    -- Shrink and fade main frame
+    TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+        Size = UDim2.new(0, 300, 0, 270),
+        Position = UDim2.new(0.5, -150, 0.5, -135)
+    }):Play()
+
+    for _, v in pairs(ScreenGui:GetDescendants()) do
+        if v:IsA("GuiObject") and not v:IsA("UIStroke") then
+            if v.BackgroundTransparency < 1 then
+                TweenService:Create(v, FadeInfo, {BackgroundTransparency = 1}):Play()
+            end
+            if v:IsA("TextLabel") or v:IsA("TextButton") or v:IsA("TextBox") then
+                TweenService:Create(v, FadeInfo, {TextTransparency = 1}):Play()
+            end
+            if v:IsA("ImageLabel") then
+                TweenService:Create(v, FadeInfo, {ImageTransparency = 1}):Play()
+            end
+        end
+    end
+
+    task.wait(0.5)
+    BackgroundBlur:Destroy()
+    
+    -- Cleanup sounds
+    for _, sound in pairs(Sounds) do
+        sound:Destroy()
+    end
+    
+    ScreenGui:Destroy()
+end
+
+-- ==========================================
+-- MAIN LOGIC (KEY SYSTEM)
+-- ==========================================
+SubmitBtn.MouseButton1Click:Connect(function()
+    if Box.Text == CORRECT_KEY then
+        notify("Key Authenticated Successfully!", 2, false)
+        task.wait(1.5)
+
+        fadeOutUI()
+
+        notify("Loading Scripts...", 2, false)
+        task.wait(1)
+
+        local success, errorMessage = pcall(function()
+            -- Loading main execution script
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/ScriptBN/ScriptOptimum-BN/refs/heads/main/README.lua"))()
+        end)
+
+        if success then
+            notify("Optimum Script Loaded!", 3, false)
+        else
+            notify("Error Loading Script", 4, true)
+            warn("Failed to load: " .. tostring(errorMessage))
+        end
+    else
+        notify("Invalid Key Provided", 2.5, true)
+        
+        -- Shake effect on wrong key
+        local originalPos = MainFrame.Position
+        for i = 1, 4 do
+            MainFrame.Position = originalPos + UDim2.new(0, math.random(-6, 6), 0, 0)
+            task.wait(0.04)
+        end
+        MainFrame.Position = originalPos
+    end
+end)
+
+-- ==========================================
+-- GET KEY LOGIC
+-- ==========================================
+local hasCopiedKey = false
+GetKeyBtn.MouseButton1Click:Connect(function()
+    if hasCopiedKey then
+        notify("Key link is already in your clipboard", 2, true)
+    else
+        if setclipboard then
+            setclipboard(GET_KEY_LINK)
+            hasCopiedKey = true
+            notify("Key Link Copied! Paste it in your browser.", 5, false)
+        else
+            notify("Your executor doesn't support clipboard copying.", 3, true)
+        end
+    end
+end)
+
+-- ==========================================
+-- DISCORD LOGIC
+-- ==========================================
+local hasCopiedDiscord = false
+DiscordBtn.MouseButton1Click:Connect(function()
+    if hasCopiedDiscord then
+        notify("Discord link is already in your clipboard", 2, true)
+    else
+        if setclipboard then
+            setclipboard(DISCORD_LINK)
+            hasCopiedDiscord = true
+            notify("Discord Link Copied!", 3, false)
+        else
+            notify("Your executor doesn't support clipboard copying.", 3, true)
+        end
+    end
+end)
+
+-- Start the main intro initialization animation
+introUI()
