@@ -3,6 +3,7 @@
 -- ==============================================================================
 -- Fully Featured, Animated, Glass UI with Sounds & Particle Systems
 -- Refactored for maximum performance, scalability, and immediate visual feedback.
+-- Includes Live Status Polling & Game Breaker Anti-Bypass
 -- ==============================================================================
 
 local Players = game:GetService("Players")
@@ -21,6 +22,16 @@ local GuiParent = (RunService and RunService:IsStudio()) and player:WaitForChild
 -- SYSTEM CONFIGURATION
 -- ==============================================================================
 local Config = {
+    SystemStatus = {
+        -- Change this to true to stop NEW executions immediately.
+        ScriptDown = false, 
+        DownReason = "The script is currently down for maintenance to fix detection issues.",
+        
+        -- To kick players who have ALREADY executed, the script checks this URL every 30 seconds.
+        -- Create a raw text file (like Pastebin or Github) and type: false
+        -- When you want to shut it down globally, change the text in the pastebin to: true|Your Reason Here
+        LiveCheckURL = "https://pastebin.com/raw/ECD5PKTd"
+    },
     KeySystem = {
         CorrectKey = "Rwnv-toEfk-69gI-PteDt",
         GetKeyURL = "https://pastebin.com/raw/pB1h5cjF",
@@ -46,15 +57,86 @@ local Config = {
         BorderThickness = 1.5
     },
     Animations = {
-        -- Sped up the intro/slide for the "immediate pop" requested
         Hover = TweenInfo.new(0.15, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
         Click = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-        Slide = TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), -- Faster
-        Fade = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),  -- Faster
-        ParticleSpeedMin = 5, -- Faster particles
+        Slide = TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), 
+        Fade = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),  
+        ParticleSpeedMin = 5, 
         ParticleSpeedMax = 10
     }
 }
+
+-- ==============================================================================
+-- KILL SWITCH & GAME BREAKER SYSTEM
+-- ==============================================================================
+
+-- Function to completely break the game if they bypass the kick
+local function BreakGameAndKick(reason)
+    -- Attempt standard kick first
+    pcall(function()
+        player:Kick("🛑 OPTIMUM SCRIPT DOWN 🛑\n\nReason: " .. reason)
+    end)
+    
+    -- Wait a second to see if they bypassed the kick
+    task.wait(1)
+    
+    pcall(function()
+        -- 1. Delete their character to lose all functions
+        if player.Character then
+            player.Character:Destroy()
+        end
+        
+        -- 2. Create a massive black blocking screen
+        local breakGui = Instance.new("ScreenGui")
+        breakGui.Name = "CriticalError"
+        breakGui.Parent = GuiParent
+        breakGui.IgnoreGuiInset = true
+        breakGui.DisplayOrder = 999999
+        
+        local bg = Instance.new("Frame", breakGui)
+        bg.Size = UDim2.new(10, 0, 10, 0)
+        bg.Position = UDim2.new(-5, 0, -5, 0)
+        bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        bg.ZIndex = 999999
+        
+        local txt = Instance.new("TextLabel", bg)
+        txt.Size = UDim2.new(0.1, 0, 0.1, 0)
+        txt.Position = UDim2.new(0.45, 0, 0.45, 0)
+        txt.BackgroundTransparency = 1
+        txt.TextColor3 = Color3.fromRGB(255, 0, 0)
+        txt.TextScaled = true
+        txt.Font = Enum.Font.GothamBlack
+        txt.Text = "SCRIPT DOWN: " .. reason .. "\n\nPLEASE REJOIN."
+        
+        -- 3. Intentionally crash the client via memory loop to force a rejoin
+        while true do end
+    end)
+end
+
+-- 1st Check: If script is manually disabled in code for new executions
+if Config.SystemStatus.ScriptDown then
+    BreakGameAndKick(Config.SystemStatus.DownReason)
+    return -- Halt entire script
+end
+
+-- 2nd Check: Live Polling for players already injected
+task.spawn(function()
+    while task.wait(30) do -- Checks every 30 seconds silently in the background
+        pcall(function()
+            if Config.SystemStatus.LiveCheckURL and Config.SystemStatus.LiveCheckURL ~= "" then
+                local statusData = game:HttpGet(Config.SystemStatus.LiveCheckURL)
+                
+                -- If URL says "true", it means script is down. 
+                -- Format on your Pastebin should be: true|Reason goes here
+                if string.sub(string.lower(statusData), 1, 4) == "true" then
+                    local splitData = string.split(statusData, "|")
+                    local liveReason = splitData[2] or Config.SystemStatus.DownReason
+                    BreakGameAndKick(liveReason)
+                end
+            end
+        end)
+    end
+end)
 
 -- ==============================================================================
 -- SOUND MANAGER
@@ -78,7 +160,7 @@ function SoundManager:Initialize()
         snd.SoundId = data.Id
         snd.Volume = data.Volume
         snd.Pitch = data.Pitch
-        snd.Parent = Workspace -- Parent to workspace for immediate loading
+        snd.Parent = Workspace 
         self.Sounds[name] = snd
     end
 end
@@ -88,7 +170,6 @@ function SoundManager:Play(soundName)
         local snd = self.Sounds[soundName]:Clone()
         snd.Parent = Workspace
         snd:Play()
-        -- Cleanup after playing
         game.Debris:AddItem(snd, snd.TimeLength + 0.5)
     end
 end
@@ -130,7 +211,7 @@ BackgroundOverlay.ZIndex = 1
 BackgroundOverlay.Parent = ScreenGui
 
 -- ==============================================================================
--- PARTICLE MANAGER (FAST & BURST ENABLED)
+-- PARTICLE MANAGER 
 -- ==============================================================================
 local ParticleManager = {
     Container = nil,
@@ -158,7 +239,6 @@ function ParticleManager:SpawnParticle(randomY)
     
     local startY = 1.1
     if randomY then
-        -- Used for initial burst so they don't all start from the bottom
         startY = math.random(0, 100) / 100
     end
     
@@ -166,7 +246,6 @@ function ParticleManager:SpawnParticle(randomY)
     Particle.Size = UDim2.new(0, size, 0, size)
     Particle.Position = UDim2.new(startX, 0, startY, 0)
     
-    -- Randomize colors between primary and secondary
     if math.random(1, 2) == 1 then
         Particle.BackgroundColor3 = Config.Theme.AccentPrimary
     else
@@ -197,7 +276,6 @@ function ParticleManager:SpawnParticle(randomY)
     
     moveTween.Completed:Connect(function()
         Particle:Destroy()
-        -- Remove from tracking table
         for i, p in ipairs(self.Particles) do
             if p == Particle then
                 table.remove(self.Particles, i)
@@ -208,7 +286,6 @@ function ParticleManager:SpawnParticle(randomY)
 end
 
 function ParticleManager:SpawnBurst(amount)
-    -- Instantly spawns a screen full of particles for that immediate "pop"
     for i = 1, amount do
         self:SpawnParticle(true) 
     end
@@ -219,7 +296,6 @@ function ParticleManager:Start()
     task.spawn(function()
         while self.Active do
             self:SpawnParticle(false)
-            -- Much faster spawn rate for a more vibrant background
             task.wait(math.random(1, 3) / 10) 
         end
     end)
@@ -239,15 +315,15 @@ end
 ParticleManager:Initialize(BackgroundOverlay)
 
 -- ==============================================================================
--- NOTIFICATION MANAGER (SMALLER, SLEEKER UI)
+-- NOTIFICATION MANAGER 
 -- ==============================================================================
 local NotificationManager = {
     List = {},
-    Width = 180,  -- Significantly smaller width
-    Height = 30,  -- Significantly smaller height
-    Padding = 38, -- Tighter stacking space
-    StartX = 20,  -- Margin from the right edge
-    StartY = 30   -- Margin from the top
+    Width = 180,  
+    Height = 30,  
+    Padding = 38, 
+    StartX = 20,  
+    StartY = 30   
 }
 
 function NotificationManager:Notify(text, duration, isError)
@@ -285,11 +361,10 @@ function NotificationManager:Notify(text, duration, isError)
     NotifText.TextColor3 = Color3.fromRGB(240, 240, 240)
     NotifText.Font = Enum.Font.GothamMedium
     
-    -- FIXED TEXT SCALING
     NotifText.TextScaled = true
     NotifText.TextWrapped = true
     local TextConstraint = Instance.new("UITextSizeConstraint")
-    TextConstraint.MaxTextSize = 12 -- Prevents text from becoming too big
+    TextConstraint.MaxTextSize = 12 
     TextConstraint.Parent = NotifText
     
     NotifText.TextXAlignment = Enum.TextXAlignment.Left
@@ -307,14 +382,12 @@ function NotificationManager:Notify(text, duration, isError)
 
     table.insert(self.List, NotifFrame)
 
-    -- Slide In (Target calculated from right edge)
     local targetX = -self.Width - self.StartX
     TweenService:Create(NotifFrame, Config.Animations.Slide, {
         Position = UDim2.new(1, targetX, 0, self.StartY + ((#self.List - 1) * self.Padding))
     }):Play()
 
     task.delay(duration, function()
-        -- Fade and slide out
         local fadeOut = TweenService:Create(NotifFrame, Config.Animations.Fade, {
             Position = UDim2.new(1, self.StartX + 50, 0, NotifFrame.Position.Y.Offset), 
             BackgroundTransparency = 1
@@ -326,7 +399,6 @@ function NotificationManager:Notify(text, duration, isError)
         fadeOut:Play()
         fadeOut.Completed:Wait()
 
-        -- Cleanup and rearrange
         local index = table.find(self.List, NotifFrame)
         if index then
             table.remove(self.List, index)
@@ -346,7 +418,7 @@ end
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 340, 0, 310)
-MainFrame.Position = UDim2.new(0.5, -170, 0.5, -120) -- Start lower
+MainFrame.Position = UDim2.new(0.5, -170, 0.5, -120) 
 MainFrame.BackgroundColor3 = Config.Theme.MainFrame
 MainFrame.BackgroundTransparency = 1 
 MainFrame.ZIndex = 3
@@ -356,7 +428,6 @@ local MainCorner = Instance.new("UICorner")
 MainCorner.CornerRadius = UDim.new(0, Config.UI.CornerRadius)
 MainCorner.Parent = MainFrame
 
--- Animated RGB-style border for MainFrame
 local MainStroke = Instance.new("UIStroke")
 MainStroke.Color = Color3.fromRGB(255, 255, 255)
 MainStroke.Thickness = Config.UI.BorderThickness
@@ -371,11 +442,10 @@ StrokeGradient.Color = ColorSequence.new{
 }
 StrokeGradient.Parent = MainStroke
 
--- Gradient rotation loop
 task.spawn(function()
     local rotation = 0
     while MainFrame.Parent do
-        rotation = rotation + 1.5 -- Slightly faster rotation
+        rotation = rotation + 1.5 
         if rotation >= 360 then rotation = 0 end
         StrokeGradient.Rotation = rotation
         task.wait(0.01)
@@ -404,12 +474,11 @@ local TitleText = Instance.new("TextLabel")
 TitleText.Size = UDim2.new(1, -60, 1, 0)
 TitleText.Position = UDim2.new(0, 55, 0, 0)
 TitleText.BackgroundTransparency = 1
-TitleText.Text = "OPTIMUM KEYSYSTEM | By Fuddy" -- UPDATED TITLE
+TitleText.Text = "OPTIMUM KEYSYSTEM | By Fuddy" 
 TitleText.TextColor3 = Config.Theme.TextLight
 TitleText.TextTransparency = 1
 TitleText.Font = Enum.Font.GothamBlack
 
--- FIXED TEXT SCALING
 TitleText.TextScaled = true
 local TitleConstraint = Instance.new("UITextSizeConstraint")
 TitleConstraint.MaxTextSize = 14
@@ -462,7 +531,6 @@ Box.TextColor3 = Config.Theme.TextLight
 Box.TextTransparency = 1
 Box.Font = Enum.Font.GothamMedium
 
--- FIXED TEXT SCALING
 Box.TextScaled = true
 local BoxConstraint = Instance.new("UITextSizeConstraint")
 BoxConstraint.MaxTextSize = 13
@@ -498,7 +566,6 @@ local function CreateInteractiveButton(name, yPos, text, accentColor)
     Btn.TextTransparency = 1
     Btn.Font = Enum.Font.GothamBold
     
-    -- FIXED TEXT SCALING
     Btn.TextScaled = true
     local BtnConstraint = Instance.new("UITextSizeConstraint")
     BtnConstraint.MaxTextSize = 13
@@ -516,7 +583,6 @@ local function CreateInteractiveButton(name, yPos, text, accentColor)
     Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     Stroke.Transparency = 1
 
-    -- Events
     Btn.MouseEnter:Connect(function()
         SoundManager:Play("Hover")
         TweenService:Create(Btn, Config.Animations.Hover, {BackgroundColor3 = accentColor}):Play()
@@ -550,25 +616,21 @@ local GetKeyBtn, GetKeyStroke = CreateInteractiveButton("GetKeyBtn", 180, "Get K
 local DiscordBtn, DiscordStroke = CreateInteractiveButton("DiscordBtn", 235, "Join Discord", Color3.fromRGB(88, 101, 242))
 
 -- ==============================================================================
--- ANIMATION CONTROLLERS (INTRO / OUTRO)
+-- ANIMATION CONTROLLERS
 -- ==============================================================================
 local function PerformIntro()
-    -- Enable Blur fast
     TweenService:Create(BackgroundBlur, Config.Animations.Fade, {Size = Config.UI.BlurIntensity}):Play()
     TweenService:Create(BackgroundOverlay, Config.Animations.Fade, {BackgroundTransparency = 0.4}):Play()
     
-    -- Slide Main Frame up into place
     local mainTween = TweenService:Create(MainFrame, Config.Animations.Slide, {
         Position = UDim2.new(0.5, -170, 0.5, -155), 
         BackgroundTransparency = Config.UI.GlassTransparency 
     })
     mainTween:Play()
 
-    -- Start Particle System & Trigger Instant Burst for immediate visual feedback
     ParticleManager:Start()
-    ParticleManager:SpawnBurst(20) -- Spawns 20 particles instantly across the screen
+    ParticleManager:SpawnBurst(20) 
 
-    -- Fade in sub-elements
     local elementsToFade = {
         {Obj = MainStroke, Prop = "Transparency", Target = 0},
         {Obj = TitleText, Prop = "TextTransparency", Target = 0},
@@ -602,21 +664,18 @@ local function PerformOutro()
 
     TweenService:Create(BackgroundBlur, Config.Animations.Fade, {Size = 0}):Play()
 
-    -- Hide strokes first for cleaner fade
     for _, v in pairs(MainFrame:GetDescendants()) do
         if v:IsA("UIStroke") then
             TweenService:Create(v, Config.Animations.Fade, {Transparency = 1}):Play()
         end
     end
 
-    -- Shrink and drop frame
     TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
         Size = UDim2.new(0, 300, 0, 270),
         Position = UDim2.new(0.5, -150, 0.5, -120),
         BackgroundTransparency = 1
     }):Play()
 
-    -- Fade out all text/images/backgrounds
     for _, v in pairs(ScreenGui:GetDescendants()) do
         if v:IsA("GuiObject") and not v:IsA("UIStroke") then
             if v:IsA("TextLabel") or v:IsA("TextButton") or v:IsA("TextBox") then
@@ -645,27 +704,25 @@ SubmitBtn.MouseButton1Click:Connect(function()
     if Box.Text == Config.KeySystem.CorrectKey then
         NotificationManager:Notify("Key Authenticated Successfully!", 2, false)
         
-        -- Lock input
         Box.TextEditable = false
         SubmitBtn.Active = false
         
         task.wait(1.5)
         PerformOutro()
 
-        -- Small delay before script execution info
         task.wait(0.5)
         local success, errorMessage = pcall(function()
             loadstring(game:HttpGet(Config.KeySystem.MainScriptURL))()
         end)
 
+        -- REPLACED PRINTS WITH NOTIFICATIONS
         if success then
-            print("[Optimum] Script loaded successfully.")
+            NotificationManager:Notify("Optimum Script loaded successfully!", 4, false)
         else
-            warn("[Optimum] Failed to load main script: " .. tostring(errorMessage))
+            NotificationManager:Notify("Failed to load script: " .. tostring(errorMessage), 5, true)
         end
     else
         NotificationManager:Notify("Invalid Key Provided", 2.5, true)
-        -- REMOVED SHAKE EFFECT COMPLETELY
     end
 end)
 
