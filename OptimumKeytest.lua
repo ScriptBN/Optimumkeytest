@@ -284,7 +284,14 @@ function NotificationManager:Notify(text, duration, isError)
     NotifText.Text = text
     NotifText.TextColor3 = Color3.fromRGB(240, 240, 240)
     NotifText.Font = Enum.Font.GothamMedium
-    NotifText.TextSize = 10 -- Smaller text to fit smaller box
+    
+    -- FIXED TEXT SCALING
+    NotifText.TextScaled = true
+    NotifText.TextWrapped = true
+    local TextConstraint = Instance.new("UITextSizeConstraint")
+    TextConstraint.MaxTextSize = 12 -- Prevents text from becoming too big
+    TextConstraint.Parent = NotifText
+    
     NotifText.TextXAlignment = Enum.TextXAlignment.Left
     NotifText.ZIndex = 21
     NotifText.Parent = NotifFrame
@@ -397,11 +404,17 @@ local TitleText = Instance.new("TextLabel")
 TitleText.Size = UDim2.new(1, -60, 1, 0)
 TitleText.Position = UDim2.new(0, 55, 0, 0)
 TitleText.BackgroundTransparency = 1
-TitleText.Text = "OPTIMUM KEY SYSTEM"
+TitleText.Text = "OPTIMUM KEYSYSTEM | By Fuddy" -- UPDATED TITLE
 TitleText.TextColor3 = Config.Theme.TextLight
 TitleText.TextTransparency = 1
 TitleText.Font = Enum.Font.GothamBlack
-TitleText.TextSize = 14
+
+-- FIXED TEXT SCALING
+TitleText.TextScaled = true
+local TitleConstraint = Instance.new("UITextSizeConstraint")
+TitleConstraint.MaxTextSize = 14
+TitleConstraint.Parent = TitleText
+
 TitleText.TextXAlignment = Enum.TextXAlignment.Left
 TitleText.ZIndex = 4
 TitleText.Parent = TitleContainer
@@ -448,7 +461,13 @@ Box.Text = ""
 Box.TextColor3 = Config.Theme.TextLight
 Box.TextTransparency = 1
 Box.Font = Enum.Font.GothamMedium
-Box.TextSize = 13
+
+-- FIXED TEXT SCALING
+Box.TextScaled = true
+local BoxConstraint = Instance.new("UITextSizeConstraint")
+BoxConstraint.MaxTextSize = 13
+BoxConstraint.Parent = Box
+
 Box.TextXAlignment = Enum.TextXAlignment.Center 
 Box.ZIndex = 5
 Box.Parent = BoxContainer
@@ -478,7 +497,13 @@ local function CreateInteractiveButton(name, yPos, text, accentColor)
     Btn.TextColor3 = Config.Theme.TextLight
     Btn.TextTransparency = 1
     Btn.Font = Enum.Font.GothamBold
-    Btn.TextSize = 13
+    
+    -- FIXED TEXT SCALING
+    Btn.TextScaled = true
+    local BtnConstraint = Instance.new("UITextSizeConstraint")
+    BtnConstraint.MaxTextSize = 13
+    BtnConstraint.Parent = Btn
+    
     Btn.AutoButtonColor = false
     Btn.ZIndex = 4
     Btn.Parent = MainFrame
@@ -640,14 +665,7 @@ SubmitBtn.MouseButton1Click:Connect(function()
         end
     else
         NotificationManager:Notify("Invalid Key Provided", 2.5, true)
-        
-        -- Shake effect on wrong key
-        local originalPos = MainFrame.Position
-        for i = 1, 5 do
-            MainFrame.Position = originalPos + UDim2.new(0, math.random(-8, 8), 0, 0)
-            task.wait(0.04)
-        end
-        MainFrame.Position = originalPos
+        -- REMOVED SHAKE EFFECT COMPLETELY
     end
 end)
 
