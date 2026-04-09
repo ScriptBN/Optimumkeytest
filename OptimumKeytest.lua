@@ -24,7 +24,7 @@ local GuiParent = (RunService and RunService:IsStudio()) and player:WaitForChild
 local Config = {
     SystemStatus = {
         -- Change this to true to stop NEW executions immediately.
-        ScriptDown = true, 
+        ScriptDown = false, 
         DownReason = "Just Testing Bro Dont worry script ain't down",
         
         -- To kick players who have ALREADY executed, the script checks this URL every 30 seconds.
