@@ -364,9 +364,9 @@ ParticleManager:Initialize(BackgroundOverlay)
 -- ==============================================================================
 local NotificationManager = {
     List = {},
-    Width = 200,  
-    Height = 35,  
-    Padding = 42, 
+    Width = 170,  -- Made smaller (was 200)
+    Height = 28,  -- Made smaller (was 35)
+    Padding = 34, -- Adjusted for new height (was 42)
     StartX = 20,  
     StartY = 30   
 }
@@ -409,7 +409,7 @@ function NotificationManager:Notify(text, duration, isError)
     NotifText.TextScaled = true
     NotifText.TextWrapped = true
     local TextConstraint = Instance.new("UITextSizeConstraint")
-    TextConstraint.MaxTextSize = 13 
+    TextConstraint.MaxTextSize = 12 -- Adjusted down to fit the smaller box
     TextConstraint.MinTextSize = 9
     TextConstraint.Parent = NotifText
     
@@ -418,8 +418,8 @@ function NotificationManager:Notify(text, duration, isError)
     NotifText.Parent = NotifFrame
 
     local Indicator = Instance.new("Frame")
-    Indicator.Size = UDim2.new(0, 3, 0.6, 0)
-    Indicator.Position = UDim2.new(0, 6, 0.2, 0)
+    Indicator.Size = UDim2.new(0, 3, 0.5, 0) -- Scaled to match the smaller UI
+    Indicator.Position = UDim2.new(0, 6, 0.25, 0)
     Indicator.BackgroundColor3 = accentColor
     Indicator.BorderSizePixel = 0
     Indicator.ZIndex = 21
