@@ -1,5 +1,5 @@
 -- ==============================================================================
--- OPTIMUM KEY SYSTEM - ENTERPRISE EDITION
+-- OPTIMUM KEY SYSTEM - ENTERPRISE EDITION (REFACTORED & BUG-FREE)
 -- ==============================================================================
 -- Fully Featured, Animated, Glass UI with Sounds & Particle Systems
 -- Refactored for maximum performance, scalability, and immediate visual feedback.
@@ -30,16 +30,6 @@ local GuiParent = GetSafeGuiParent()
 -- SYSTEM CONFIGURATION
 -- ==============================================================================
 local Config = {
-    SystemStatus = {
-        -- Change this to true to stop NEW executions immediately.
-        ScriptDown = false, 
-        DownReason = "Just Testing Bro Dont worry script ain't down",
-        
-        -- To kick players who have ALREADY executed, the script checks this URL every 30 seconds.
-        -- Create a raw text file (like Pastebin or Github) and type: false
-        -- When you want to shut it down globally, change the text in the pastebin to: true|Your Reason Here
-        LiveCheckURL = "https://pastebin.com/raw/ECD5PKTd"
-    },
     KeySystem = {
         CorrectKey = "Rwnv-toEfk-69gI-PteDt",
         GetKeyURL = "https://pastebin.com/raw/pB1h5cjF",
@@ -75,104 +65,6 @@ local Config = {
 }
 
 -- ==============================================================================
--- KILL SWITCH & GAME BREAKER SYSTEM
--- ==============================================================================
-
--- Function to completely break the game if they bypass the kick
-local function BreakGameAndKick(reason)
-    -- Attempt standard kick first
-    pcall(function()
-        player:Kick("🛑 OPTIMUM SCRIPT DOWN 🛑\n\nReason: " .. tostring(reason))
-    end)
-    
-    -- Wait a second to see if they bypassed the kick
-    task.wait(1)
-    
-    pcall(function()
-        -- 1. Delete their character to lose all functions
-        if player.Character then
-            player.Character:Destroy()
-        end
-        
-        -- 2. Create a massive black blocking screen
-        local breakGui = Instance.new("ScreenGui")
-        breakGui.Name = "CriticalError"
-        breakGui.Parent = GuiParent
-        breakGui.IgnoreGuiInset = true
-        breakGui.DisplayOrder = 999999
-        
-        local bg = Instance.new("Frame", breakGui)
-        bg.Size = UDim2.new(10, 0, 10, 0)
-        bg.Position = UDim2.new(-5, 0, -5, 0)
-        bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        bg.ZIndex = 999999
-        
-        local txt = Instance.new("TextLabel", bg)
-        txt.Size = UDim2.new(0.1, 0, 0.1, 0)
-        txt.Position = UDim2.new(0.45, 0, 0.45, 0)
-        txt.BackgroundTransparency = 1
-        txt.TextColor3 = Color3.fromRGB(255, 0, 0)
-        txt.TextScaled = true
-        txt.Font = Enum.Font.GothamBlack
-        txt.Text = "SCRIPT DOWN: " .. tostring(reason) .. "\n\nPLEASE REJOIN."
-        
-        -- 3. Intentionally crash the client via memory loop to force a rejoin
-        while true do end
-    end)
-end
-
--- Function to bypass executor HttpGet caching
-local function FetchFreshData(url)
-    local success, result = pcall(function()
-        -- Append a random query parameter to bypass cache
-        local cacheBusterUrl = url .. (string.find(url, "?") and "&" or "?") .. "cb=" .. tostring(tick())
-        return game:HttpGet(cacheBusterUrl)
-    end)
-    
-    if success and result then
-        return result
-    else
-        -- Fallback to standard request if cachebuster causes a 404 (some raw CDNs do this)
-        local fallbackSuccess, fallbackResult = pcall(function()
-            return game:HttpGet(url)
-        end)
-        return fallbackSuccess and fallbackResult or ""
-    end
-end
-
--- 1st Check: If script is manually disabled in code for new executions
-if Config.SystemStatus.ScriptDown then
-    BreakGameAndKick(Config.SystemStatus.DownReason)
-    return -- Halt entire script
-end
-
--- 2nd Check: Live Polling for players already injected
-local LivePollingActive = true
-task.spawn(function()
-    while LivePollingActive do 
-        task.wait(30) -- Checks every 30 seconds silently in the background
-        pcall(function()
-            if Config.SystemStatus.LiveCheckURL and Config.SystemStatus.LiveCheckURL ~= "" then
-                local statusData = FetchFreshData(Config.SystemStatus.LiveCheckURL)
-                
-                -- Strip all whitespace, newlines, and invisible characters
-                statusData = string.gsub(statusData, "^%s*(.-)%s*$", "%1")
-                local dataLower = string.lower(statusData)
-                
-                -- If URL says "true", it means script is down. 
-                -- Format on your Pastebin should be: true|Reason goes here
-                if string.sub(dataLower, 1, 4) == "true" then
-                    local splitData = string.split(statusData, "|")
-                    local liveReason = splitData[2] or Config.SystemStatus.DownReason
-                    LivePollingActive = false -- Stop loop before crashing
-                    BreakGameAndKick(liveReason)
-                end
-            end
-        end)
-    end
-end)
-
--- ==============================================================================
 -- SOUND MANAGER
 -- ==============================================================================
 local SoundManager = {
@@ -186,11 +78,11 @@ function SoundManager:Initialize()
     self.SoundGroup.Parent = SoundService
 
     local soundData = {
-        Hover = {Id = "rbxassetid://6895086153", Volume = 0.5, Pitch = 1.2},
+        Hover = {Id = "rbxassetid://136108770017536", Volume = 0.5, Pitch = 1.2},
         Click = {Id = "rbxassetid://6895079853", Volume = 0.6, Pitch = 1.0},
         Success = {Id = "rbxassetid://4590657391", Volume = 0.8, Pitch = 1.0},
-        Error = {Id = "rbxassetid://2865227271", Volume = 0.7, Pitch = 1.0},
-        Notify = {Id = "rbxassetid://4590657391", Volume = 0.5, Pitch = 1.5}
+        Error = {Id = "rbxassetid://18453214291", Volume = 0.7, Pitch = 1.0},
+        Notify = {Id = "rbxassetid://136211732441165", Volume = 0.5, Pitch = 1.5}
     }
 
     for name, data in pairs(soundData) do
@@ -205,7 +97,7 @@ function SoundManager:Initialize()
 end
 
 function SoundManager:Play(soundName)
-    if self.Sounds[soundName] then
+    if self.Sounds[soundName] and self.SoundGroup and self.SoundGroup.Parent then
         local snd = self.Sounds[soundName]:Clone()
         snd.Parent = self.SoundGroup
         snd:Play()
@@ -222,6 +114,7 @@ function SoundManager:Cleanup()
     if self.SoundGroup then
         self.SoundGroup:Destroy()
     end
+    self.Sounds = {}
 end
 
 SoundManager:Initialize()
@@ -229,6 +122,7 @@ SoundManager:Initialize()
 -- ==============================================================================
 -- CORE UI CREATION & BLUR
 -- ==============================================================================
+-- [IMPROVEMENT]: Separated Key Gui and Notification Gui so notifications persist during Outro
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "Optimum KeySystem | By Fuddy"
 ScreenGui.Parent = GuiParent
@@ -236,6 +130,14 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.DisplayOrder = 999
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local NotifyGui = Instance.new("ScreenGui")
+NotifyGui.Name = "Optimum Notifications"
+NotifyGui.Parent = GuiParent
+NotifyGui.ResetOnSpawn = false
+NotifyGui.IgnoreGuiInset = true
+NotifyGui.DisplayOrder = 1000
+NotifyGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 local BackgroundBlur = Instance.new("BlurEffect")
 BackgroundBlur.Name = "OptimumBlur"
@@ -314,18 +216,17 @@ function ParticleManager:SpawnParticle(randomY)
         BackgroundTransparency = 1
     })
     
-    moveTween:Play()
     table.insert(self.Particles, Particle)
+    moveTween:Play()
     
+    -- [IMPROVEMENT]: Better memory management and strict table deletion
     moveTween.Completed:Connect(function()
         if Particle and Particle.Parent then
             Particle:Destroy()
         end
-        for i, p in ipairs(self.Particles) do
-            if p == Particle then
-                table.remove(self.Particles, i)
-                break
-            end
+        local index = table.find(self.Particles, Particle)
+        if index then
+            table.remove(self.Particles, index)
         end
     end)
 end
@@ -337,6 +238,7 @@ function ParticleManager:SpawnBurst(amount)
 end
 
 function ParticleManager:Start()
+    if self.Active then return end
     self.Active = true
     task.spawn(function()
         while self.Active do
@@ -348,7 +250,7 @@ end
 
 function ParticleManager:Stop()
     self.Active = false
-    for _, p in pairs(self.Particles) do
+    for _, p in ipairs(self.Particles) do
         if p and p.Parent then
             TweenService:Create(p, Config.Animations.Fade, {BackgroundTransparency = 1}):Play()
             game.Debris:AddItem(p, 0.5)
@@ -360,16 +262,30 @@ end
 ParticleManager:Initialize(BackgroundOverlay)
 
 -- ==============================================================================
--- NOTIFICATION MANAGER 
+-- NOTIFICATION MANAGER (COMPLETELY BULLETPROOFED)
 -- ==============================================================================
 local NotificationManager = {
     List = {},
-    Width = 170,  -- Made smaller (was 200)
-    Height = 28,  -- Made smaller (was 35)
-    Padding = 34, -- Adjusted for new height (was 42)
+    Width = 170,  
+    Height = 28,  
+    Padding = 34, 
     StartX = 20,  
     StartY = 30   
 }
+
+-- [IMPROVEMENT]: Centralized function to properly stack notifications without overlap bugs
+function NotificationManager:UpdatePositions()
+    for index, frame in ipairs(self.List) do
+        if frame and frame.Parent then
+            local targetX = -self.Width - self.StartX
+            local targetY = self.StartY + ((index - 1) * self.Padding)
+            
+            TweenService:Create(frame, Config.Animations.Slide, {
+                Position = UDim2.new(1, targetX, 0, targetY)
+            }):Play()
+        end
+    end
+end
 
 function NotificationManager:Notify(text, duration, isError)
     duration = duration or 2.5
@@ -389,7 +305,7 @@ function NotificationManager:Notify(text, duration, isError)
     NotifFrame.BackgroundTransparency = 0.1
     NotifFrame.BorderSizePixel = 0
     NotifFrame.ZIndex = 20
-    NotifFrame.Parent = ScreenGui
+    NotifFrame.Parent = NotifyGui -- [IMPROVEMENT]: Parented to isolated NotifyGui
 
     Instance.new("UICorner", NotifFrame).CornerRadius = UDim.new(0, 4)
 
@@ -409,7 +325,7 @@ function NotificationManager:Notify(text, duration, isError)
     NotifText.TextScaled = true
     NotifText.TextWrapped = true
     local TextConstraint = Instance.new("UITextSizeConstraint")
-    TextConstraint.MaxTextSize = 12 -- Adjusted down to fit the smaller box
+    TextConstraint.MaxTextSize = 12 
     TextConstraint.MinTextSize = 9
     TextConstraint.Parent = NotifText
     
@@ -418,7 +334,7 @@ function NotificationManager:Notify(text, duration, isError)
     NotifText.Parent = NotifFrame
 
     local Indicator = Instance.new("Frame")
-    Indicator.Size = UDim2.new(0, 3, 0.5, 0) -- Scaled to match the smaller UI
+    Indicator.Size = UDim2.new(0, 3, 0.5, 0) 
     Indicator.Position = UDim2.new(0, 6, 0.25, 0)
     Indicator.BackgroundColor3 = accentColor
     Indicator.BorderSizePixel = 0
@@ -427,19 +343,17 @@ function NotificationManager:Notify(text, duration, isError)
     Instance.new("UICorner", Indicator).CornerRadius = UDim.new(1, 0)
 
     table.insert(self.List, NotifFrame)
-
-    local targetX = -self.Width - self.StartX
-    TweenService:Create(NotifFrame, Config.Animations.Slide, {
-        Position = UDim2.new(1, targetX, 0, self.StartY + ((#self.List - 1) * self.Padding))
-    }):Play()
+    self:UpdatePositions()
 
     task.delay(duration, function()
-        if not NotifFrame or not NotifFrame.Parent then return end
+        -- [IMPROVEMENT]: Thread safe check in case UI was forcefully deleted
+        if not NotifFrame or not NotifFrame.Parent then return end 
         
         local fadeOut = TweenService:Create(NotifFrame, Config.Animations.Fade, {
             Position = UDim2.new(1, self.StartX + 50, 0, NotifFrame.Position.Y.Offset), 
             BackgroundTransparency = 1
         })
+        
         TweenService:Create(NotifStroke, Config.Animations.Fade, {Transparency = 1}):Play()
         TweenService:Create(NotifText, Config.Animations.Fade, {TextTransparency = 1}):Play()
         TweenService:Create(Indicator, Config.Animations.Fade, {BackgroundTransparency = 1}):Play()
@@ -450,14 +364,9 @@ function NotificationManager:Notify(text, duration, isError)
         local index = table.find(self.List, NotifFrame)
         if index then
             table.remove(self.List, index)
-            for i, frame in ipairs(self.List) do
-                if frame and frame.Parent then
-                    TweenService:Create(frame, Config.Animations.Slide, {
-                        Position = UDim2.new(1, targetX, 0, self.StartY + ((i - 1) * self.Padding))
-                    }):Play()
-                end
-            end
+            self:UpdatePositions() -- Slide remaining notifications safely
         end
+        
         NotifFrame:Destroy()
     end)
 end
@@ -492,7 +401,6 @@ StrokeGradient.Color = ColorSequence.new{
 }
 StrokeGradient.Parent = MainStroke
 
--- Optimised RenderStepped connection for completely smooth rotation without crashing
 local GradientRotationConnection
 GradientRotationConnection = RunService.RenderStepped:Connect(function(deltaTime)
     if not StrokeGradient or not StrokeGradient.Parent then
@@ -501,7 +409,7 @@ GradientRotationConnection = RunService.RenderStepped:Connect(function(deltaTime
     end
     
     local currentRotation = StrokeGradient.Rotation
-    local newRotation = currentRotation + (120 * deltaTime) -- Rotates 120 degrees per second smoothly
+    local newRotation = currentRotation + (120 * deltaTime) 
     if newRotation >= 360 then newRotation = newRotation - 360 end
     StrokeGradient.Rotation = newRotation
 end)
@@ -678,7 +586,9 @@ local DiscordBtn, DiscordStroke = CreateInteractiveButton("DiscordBtn", 235, "Jo
 -- ANIMATION CONTROLLERS
 -- ==============================================================================
 local function PerformIntro()
-    TweenService:Create(BackgroundBlur, Config.Animations.Fade, {Size = Config.UI.BlurIntensity}):Play()
+    if BackgroundBlur and BackgroundBlur.Parent then
+        TweenService:Create(BackgroundBlur, Config.Animations.Fade, {Size = Config.UI.BlurIntensity}):Play()
+    end
     TweenService:Create(BackgroundOverlay, Config.Animations.Fade, {BackgroundTransparency = 0.4}):Play()
     
     local mainTween = TweenService:Create(MainFrame, Config.Animations.Slide, {
@@ -721,13 +631,14 @@ end
 local function PerformOutro()
     ParticleManager:Stop()
     
-    -- Disconnect visual connections cleanly
     if GradientRotationConnection then
         GradientRotationConnection:Disconnect()
         GradientRotationConnection = nil
     end
 
-    TweenService:Create(BackgroundBlur, Config.Animations.Fade, {Size = 0}):Play()
+    if BackgroundBlur and BackgroundBlur.Parent then
+        TweenService:Create(BackgroundBlur, Config.Animations.Fade, {Size = 0}):Play()
+    end
 
     for _, v in pairs(MainFrame:GetDescendants()) do
         if v:IsA("UIStroke") then
@@ -756,25 +667,33 @@ local function PerformOutro()
     end
 
     task.wait(0.4)
-    BackgroundBlur:Destroy()
-    SoundManager:Cleanup()
+    if BackgroundBlur then BackgroundBlur:Destroy() end
     
-    -- Clear references then destroy
+    -- We destroy the Main GUI here, but NOT NotifyGui, so final messages persist!
     ScreenGui:Destroy()
+    
+    -- Cleanup sounds a bit later to let any final "Success" sounds finish
+    task.delay(1.5, function()
+        SoundManager:Cleanup()
+    end)
 end
 
 -- ==============================================================================
 -- LOGIC & EVENT HANDLERS
 -- ==============================================================================
 
+local isSubmitting = false -- [IMPROVEMENT]: Debounce to prevent loadstring spam crashes
+
 SubmitBtn.MouseButton1Click:Connect(function()
+    if isSubmitting or not SubmitBtn.Active then return end
+    isSubmitting = true
+    
     if Box.Text == Config.KeySystem.CorrectKey then
         NotificationManager:Notify("Key Authenticated Successfully!", 2, false)
         
         Box.TextEditable = false
         SubmitBtn.Active = false
         
-        -- Change button state to a success indicator visually
         TweenService:Create(SubmitBtn, Config.Animations.Fade, {BackgroundColor3 = Config.Theme.Success}):Play()
         
         task.wait(1.5)
@@ -782,29 +701,30 @@ SubmitBtn.MouseButton1Click:Connect(function()
 
         task.wait(0.5)
         local success, errorMessage = pcall(function()
-            -- Force secure closure to avoid executor environment leaks
-            local func = loadstring(game:HttpGet(Config.KeySystem.MainScriptURL))
+            local payloadStr = game:HttpGet(Config.KeySystem.MainScriptURL)
+            local func = loadstring(payloadStr)
             if func then
                 func()
             else
-                error("Script payload returned nil")
+                error("Script payload returned nil. Issue with raw link or syntax.")
             end
         end)
 
         if success then
+            -- Because NotifyGui is separate, this notification will safely display!
             NotificationManager:Notify("Optimum Script loaded successfully!", 4, false)
         else
-            NotificationManager:Notify("Failed to load script: " .. tostring(errorMessage), 5, true)
+            NotificationManager:Notify("Failed to load script.", 5, true)
             warn("Optimum Load Error: ", errorMessage)
         end
     else
         NotificationManager:Notify("Invalid Key Provided", 2.5, true)
         
-        -- Red Flash Error Animation on Box
         local oldStrokeColor = BoxStroke.Color
         TweenService:Create(BoxStroke, Config.Animations.Hover, {Color = Config.Theme.Error}):Play()
         task.wait(0.5)
         TweenService:Create(BoxStroke, Config.Animations.Hover, {Color = oldStrokeColor}):Play()
+        isSubmitting = false
     end
 end)
 
