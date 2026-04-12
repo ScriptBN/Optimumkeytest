@@ -1,5 +1,5 @@
 -- ==============================================================================
--- OPTIMUM KEY SYSTEM - ENTERPRISE EDITION (REFACTORED & BUG-FREE)
+-- OPTIMUM KEY SYSTEMM - ENTERPRISE EDITION (REFACTORED & BUG-FREE)
 -- ==============================================================================
 -- Fully Featured, Animated, Glass UI with Sounds & Particle Systems
 -- Refactored for maximum performance, scalability, and immediate visual feedback.
